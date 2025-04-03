@@ -12,7 +12,7 @@ const BookCard = ({ book }: BookCardProps) => {
 
   return (
     <div 
-      className="book-card cursor-pointer" 
+      className="book-card cursor-pointer bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow" 
       onClick={() => navigate(`/book/${book.id}`)}
     >
       <div className="h-48 sm:h-60 overflow-hidden">
@@ -23,9 +23,9 @@ const BookCard = ({ book }: BookCardProps) => {
         />
       </div>
       <div className="p-4">
-        <h3 className="book-title">{book.title}</h3>
-        <p className="book-author">{book.author}</p>
-        <div className="book-rating">
+        <h3 className="book-title font-semibold text-gray-800 text-lg">{book.title}</h3>
+        <p className="book-author text-gray-600 mt-1">{book.author}</p>
+        <div className="book-rating mt-2">
           <StarRating rating={book.avgRating} showValue={true} />
         </div>
       </div>
