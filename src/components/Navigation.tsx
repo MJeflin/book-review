@@ -3,20 +3,26 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Menu, X, BookOpen, User, Search, LogIn } from "lucide-react";
+import { Menu, X, BookOpen, User, Search, LogIn, LogOut } from "lucide-react";
 import { categories } from "@/data/mockData";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Navigation = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const navigate = useNavigate();
-  const isLoggedIn = false; // This will be managed by auth state
+  const { user, signOut, isAdmin } = useAuth();
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
       navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
     }
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/login");
   };
 
   return (
@@ -47,20 +53,38 @@ const Navigation = () => {
               </Button>
             </form>
 
-            {isLoggedIn ? (
-              <Button variant="ghost" asChild>
-                <Link to="/profile">
-                  <User className="h-5 w-5 mr-1" />
-                  Profile
-                </Link>
-              </Button>
+            {user ? (
+              <div className="flex items-center space-x-2">
+                {isAdmin && (
+                  <Button variant="ghost" asChild>
+                    <Link to="/admin">Admin</Link>
+                  </Button>
+                )}
+                <Button variant="ghost" asChild>
+                  <Link to="/profile">
+                    <User className="h-5 w-5 mr-1" />
+                    Profile
+                  </Link>
+                </Button>
+                <Button variant="outline" onClick={handleSignOut}>
+                  <LogOut className="h-5 w-5 mr-1" />
+                  Logout
+                </Button>
+              </div>
             ) : (
-              <Button variant="outline" asChild>
-                <Link to="/login">
-                  <LogIn className="h-5 w-5 mr-1" />
-                  Login
-                </Link>
-              </Button>
+              <div className="flex items-center space-x-2">
+                <Button variant="outline" asChild>
+                  <Link to="/login">
+                    <LogIn className="h-5 w-5 mr-1" />
+                    Login
+                  </Link>
+                </Button>
+                <Button variant="default" asChild>
+                  <Link to="/register">
+                    Register
+                  </Link>
+                </Button>
+              </div>
             )}
           </div>
 
@@ -122,20 +146,40 @@ const Navigation = () => {
           </div>
 
           <div className="px-4 py-2 border-t">
-            {isLoggedIn ? (
-              <Button variant="ghost" asChild className="w-full justify-start">
-                <Link to="/profile">
-                  <User className="h-5 w-5 mr-2" />
-                  Profile
-                </Link>
-              </Button>
+            {user ? (
+              <>
+                {isAdmin && (
+                  <Button variant="ghost" asChild className="w-full justify-start mb-2">
+                    <Link to="/admin" onClick={() => setIsMenuOpen(false)}>
+                      Admin Dashboard
+                    </Link>
+                  </Button>
+                )}
+                <Button variant="ghost" asChild className="w-full justify-start mb-2">
+                  <Link to="/profile" onClick={() => setIsMenuOpen(false)}>
+                    <User className="h-5 w-5 mr-2" />
+                    Profile
+                  </Link>
+                </Button>
+                <Button variant="outline" onClick={handleSignOut} className="w-full justify-start">
+                  <LogOut className="h-5 w-5 mr-2" />
+                  Logout
+                </Button>
+              </>
             ) : (
-              <Button variant="outline" asChild className="w-full justify-start">
-                <Link to="/login">
-                  <LogIn className="h-5 w-5 mr-2" />
-                  Login
-                </Link>
-              </Button>
+              <>
+                <Button variant="outline" asChild className="w-full justify-start mb-2">
+                  <Link to="/login" onClick={() => setIsMenuOpen(false)}>
+                    <LogIn className="h-5 w-5 mr-2" />
+                    Login
+                  </Link>
+                </Button>
+                <Button variant="default" asChild className="w-full justify-start">
+                  <Link to="/register" onClick={() => setIsMenuOpen(false)}>
+                    Register
+                  </Link>
+                </Button>
+              </>
             )}
           </div>
         </div>

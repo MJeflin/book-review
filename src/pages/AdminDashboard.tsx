@@ -1,22 +1,28 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Navigation from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { books as initialBooks, categories } from "@/data/mockData";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Book } from "@/types";
-import { Pencil, Trash, Plus } from "lucide-react";
+import { Pencil, Trash, Plus, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+
+interface Category {
+  id: string;
+  name: string;
+}
 
 const AdminDashboard = () => {
-  const [books, setBooks] = useState<Book[]>(initialBooks);
   const [isAddingBook, setIsAddingBook] = useState(false);
   const [editingBook, setEditingBook] = useState<Book | null>(null);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const [newBook, setNewBook] = useState<Omit<Book, "id" | "avgRating">>({
     title: "",
@@ -24,6 +30,168 @@ const AdminDashboard = () => {
     category: "",
     description: "",
     coverImage: ""
+  });
+
+  // Fetch books from Supabase
+  const { data: books = [], isLoading: isBooksLoading } = useQuery({
+    queryKey: ['books'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('books')
+        .select('id, title, author, cover_image, avg_rating, category_id, description')
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('Error fetching books:', error);
+        throw new Error(error.message);
+      }
+      
+      // Transform the data to match our Book type
+      return data.map(book => ({
+        id: book.id,
+        title: book.title,
+        author: book.author,
+        coverImage: book.cover_image || '',
+        avgRating: book.avg_rating || 0,
+        category: book.category_id || '',
+        description: book.description || ''
+      }));
+    }
+  });
+
+  // Fetch categories from Supabase
+  const { data: categories = [], isLoading: isCategoriesLoading } = useQuery({
+    queryKey: ['categories'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('id, name')
+        .order('name');
+      
+      if (error) {
+        console.error('Error fetching categories:', error);
+        throw new Error(error.message);
+      }
+      
+      return data;
+    }
+  });
+
+  // Add book mutation
+  const addBookMutation = useMutation({
+    mutationFn: async (bookData: Omit<Book, "id" | "avgRating">) => {
+      const { data, error } = await supabase
+        .from('books')
+        .insert({
+          title: bookData.title,
+          author: bookData.author,
+          category_id: bookData.category,
+          description: bookData.description,
+          cover_image: bookData.coverImage
+        })
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('Error adding book:', error);
+        throw new Error(error.message);
+      }
+      
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['books'] });
+      toast({
+        title: "Success",
+        description: "Book added successfully!",
+      });
+      setIsAddingBook(false);
+      setNewBook({
+        title: "",
+        author: "",
+        category: "",
+        description: "",
+        coverImage: ""
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: `Failed to add book: ${error.message}`,
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Update book mutation
+  const updateBookMutation = useMutation({
+    mutationFn: async (book: Book) => {
+      const { data, error } = await supabase
+        .from('books')
+        .update({
+          title: book.title,
+          author: book.author,
+          category_id: book.category,
+          description: book.description,
+          cover_image: book.coverImage
+        })
+        .eq('id', book.id)
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('Error updating book:', error);
+        throw new Error(error.message);
+      }
+      
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['books'] });
+      toast({
+        title: "Success",
+        description: "Book updated successfully!",
+      });
+      setEditingBook(null);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: `Failed to update book: ${error.message}`,
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Delete book mutation
+  const deleteBookMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('books')
+        .delete()
+        .eq('id', id);
+      
+      if (error) {
+        console.error('Error deleting book:', error);
+        throw new Error(error.message);
+      }
+      
+      return id;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['books'] });
+      toast({
+        title: "Success",
+        description: "Book deleted successfully!",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: `Failed to delete book: ${error.message}`,
+        variant: "destructive",
+      });
+    }
   });
 
   const handleAddBook = () => {
@@ -36,26 +204,7 @@ const AdminDashboard = () => {
       return;
     }
 
-    const book: Book = {
-      ...newBook,
-      id: `book${Date.now()}`,
-      avgRating: 0
-    };
-
-    setBooks([...books, book]);
-    setNewBook({
-      title: "",
-      author: "",
-      category: "",
-      description: "",
-      coverImage: ""
-    });
-    setIsAddingBook(false);
-
-    toast({
-      title: "Success",
-      description: "Book added successfully!",
-    });
+    addBookMutation.mutate(newBook);
   };
 
   const handleUpdateBook = () => {
@@ -68,23 +217,28 @@ const AdminDashboard = () => {
       return;
     }
 
-    setBooks(books.map(book => book.id === editingBook.id ? editingBook : book));
-    setEditingBook(null);
-
-    toast({
-      title: "Success",
-      description: "Book updated successfully!",
-    });
+    updateBookMutation.mutate(editingBook);
   };
 
   const handleDeleteBook = (id: string) => {
-    setBooks(books.filter(book => book.id !== id));
-    
-    toast({
-      title: "Success",
-      description: "Book deleted successfully!",
-    });
+    if (window.confirm("Are you sure you want to delete this book?")) {
+      deleteBookMutation.mutate(id);
+    }
   };
+
+  if (isBooksLoading || isCategoriesLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Navigation />
+        <div className="container mx-auto px-4 py-8 flex justify-center items-center min-h-[70vh]">
+          <div className="flex flex-col items-center">
+            <Loader2 className="h-12 w-12 animate-spin text-book-primary" />
+            <p className="mt-4 text-gray-600">Loading dashboard...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -115,12 +269,16 @@ const AdminDashboard = () => {
                 {books.map(book => (
                   <tr key={book.id}>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <img src={book.coverImage} alt={book.title} className="h-12 w-9 object-cover" />
+                      {book.coverImage ? (
+                        <img src={book.coverImage} alt={book.title} className="h-12 w-9 object-cover" />
+                      ) : (
+                        <div className="h-12 w-9 bg-gray-200 flex items-center justify-center text-xs text-gray-500">No Image</div>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{book.title}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{book.author}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {categories.find(c => c.id === book.category)?.name}
+                      {categories.find(c => c.id === book.category)?.name || "Unknown"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{book.avgRating.toFixed(1)}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -128,13 +286,25 @@ const AdminDashboard = () => {
                         <Button variant="outline" size="sm" onClick={() => setEditingBook(book)}>
                           <Pencil className="h-4 w-4" />
                         </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleDeleteBook(book.id)}>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleDeleteBook(book.id)}
+                          disabled={deleteBookMutation.isPending}
+                        >
                           <Trash className="h-4 w-4 text-red-500" />
                         </Button>
                       </div>
                     </td>
                   </tr>
                 ))}
+                {books.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
+                      No books found. Add your first book!
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -174,7 +344,7 @@ const AdminDashboard = () => {
                   <SelectValue placeholder="Select a category" />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories.map(category => (
+                  {categories.map((category: Category) => (
                     <SelectItem key={category.id} value={category.id}>{category.name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -196,7 +366,12 @@ const AdminDashboard = () => {
                 onChange={(e) => setNewBook({...newBook, coverImage: e.target.value})} 
               />
             </div>
-            <Button onClick={handleAddBook}>Add Book</Button>
+            <Button 
+              onClick={handleAddBook}
+              disabled={addBookMutation.isPending}
+            >
+              {addBookMutation.isPending ? "Adding..." : "Add Book"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -235,7 +410,7 @@ const AdminDashboard = () => {
                     <SelectValue placeholder="Select a category" />
                   </SelectTrigger>
                   <SelectContent>
-                    {categories.map(category => (
+                    {categories.map((category: Category) => (
                       <SelectItem key={category.id} value={category.id}>{category.name}</SelectItem>
                     ))}
                   </SelectContent>
@@ -257,7 +432,12 @@ const AdminDashboard = () => {
                   onChange={(e) => setEditingBook({...editingBook, coverImage: e.target.value})} 
                 />
               </div>
-              <Button onClick={handleUpdateBook}>Update Book</Button>
+              <Button 
+                onClick={handleUpdateBook}
+                disabled={updateBookMutation.isPending}
+              >
+                {updateBookMutation.isPending ? "Updating..." : "Update Book"}
+              </Button>
             </div>
           )}
         </DialogContent>

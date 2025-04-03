@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,26 +9,20 @@ import { BookOpen } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 
-const Login = () => {
+const Register = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [username, setUsername] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-  const { signIn, user } = useAuth();
+  const { signUp } = useAuth();
   const navigate = useNavigate();
-  
-  useEffect(() => {
-    // If user is already logged in, redirect to home page
-    if (user) {
-      navigate("/");
-    }
-  }, [user, navigate]);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Basic validation
-    if (!email || !password) {
+    if (!email || !password || !username) {
       toast({
         title: "Error",
         description: "Please fill in all required fields.",
@@ -40,25 +34,25 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      const { success, error } = await signIn(email, password);
+      const { success, error } = await signUp(email, password, username);
       
       if (success) {
         toast({
           title: "Success",
-          description: "You have successfully logged in!",
+          description: "Your account has been created! Please check your email to verify your account.",
         });
-        navigate("/");
+        navigate("/login");
       } else {
         toast({
-          title: "Login failed",
-          description: error || "Invalid email or password",
+          title: "Registration failed",
+          description: error || "An error occurred during registration",
           variant: "destructive",
         });
       }
     } catch (error) {
       toast({
         title: "Error",
-        description: "An unexpected error occurred during login.",
+        description: "An unexpected error occurred.",
         variant: "destructive",
       });
     } finally {
@@ -75,13 +69,13 @@ const Login = () => {
               <BookOpen className="h-10 w-10 text-book-primary" />
             </Link>
           </div>
-          <CardTitle className="text-2xl font-bold">Welcome Back!</CardTitle>
+          <CardTitle className="text-2xl font-bold">Create an Account</CardTitle>
           <CardDescription>
-            Sign in to your account to continue
+            Sign up to join our community of book lovers
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleRegister} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -94,11 +88,21 @@ const Login = () => {
               />
             </div>
             <div className="space-y-2">
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
+                placeholder="Choose a username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <Input
                 id="password"
                 type="password"
-                placeholder="Enter your password"
+                placeholder="Create a password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -109,15 +113,15 @@ const Login = () => {
               className="w-full"
               disabled={isLoading}
             >
-              {isLoading ? "Signing in..." : "Sign in"}
+              {isLoading ? "Creating account..." : "Create account"}
             </Button>
           </form>
         </CardContent>
         <CardFooter className="flex justify-center">
           <p className="text-sm text-gray-600">
-            Don't have an account?{" "}
-            <Link to="/register" className="text-book-primary hover:underline">
-              Sign up
+            Already have an account?{" "}
+            <Link to="/login" className="text-book-primary hover:underline">
+              Sign in
             </Link>
           </p>
         </CardFooter>
@@ -126,4 +130,4 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default Register;
